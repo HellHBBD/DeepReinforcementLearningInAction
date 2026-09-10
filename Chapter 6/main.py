@@ -2,53 +2,74 @@
 python main.py
 """
 
+import random
 from argparse import ArgumentParser
+
 import torch
-from torch import nn
 import torch.nn.functional as F
 import numpy as np
-import gym
+import gymnasium as gym
+
 
 class Agent(object):
-    def __init__(self, env, state_space, action_space, weights=[], max_eps_length=500, trials=5):
+    def __init__(
+        self, env, state_space, action_space, weights=[], max_eps_length=500, trials=5
+    ):
+        self.env = env
         self.max_eps_length = max_eps_length
         self.trials = trials
-        state_space = state_space[0] # add batch dimension
+        state_space = state_space[0]  # add batch dimension
         self.state_space = state_space
         self.action_space = action_space
+        self.hidden_size = 32
 
         self.weights = weights if weights else self._get_random_weights()
-        self.fitness = self._get_fitness(env)
+        self.fitness = self._get_fitness()
 
     def model(self, x):
-        x = F.relu(torch.add(torch.mm(x, self.weights[0]),self.weights[1]))
+        x = F.relu(torch.add(torch.mm(x, self.weights[0]), self.weights[1]))
         x = F.relu(torch.add(torch.mm(x, self.weights[2]), self.weights[3]))
-        x = F.softmax(torch.add(torch.mm(x, self.weights[4]), self.weights[5]))
+        x = F.softmax(torch.add(torch.mm(x, self.weights[4]), self.weights[5]), dim=-1)
         return x
 
     def _get_random_weights(self):
         return [
-            torch.rand(self.state_space, 10), # fc1 weights
-            torch.rand(10),  # fc1 bias
-            torch.rand(10, 10),  # fc2 weights
-            torch.rand(10),  # fc2 bias
-            torch.rand(10, self.action_space),  # fc3 weights
+            torch.rand(self.state_space, self.hidden_size),  # fc1 weights
+            torch.rand(self.hidden_size),  # fc1 bias
+            torch.rand(self.hidden_size, self.hidden_size),  # fc2 weights
+            torch.rand(self.hidden_size),  # fc2 bias
+            torch.rand(self.hidden_size, self.action_space),  # fc3 weights
             torch.rand(self.action_space),  # fc3 bias
         ]
 
-    def _get_fitness(self, env):
+    def test_agent(self, render=False):
+        state = self.env.reset()[0]
+        if render:
+            env.render()
+        total_reward, i, done = 0, 0, False
+        while not done and i < self.max_eps_length:
+            action = self.get_action(state)
+            state, reward, terminated, truncated, _ = env.step(action)
+            total_reward += reward
+            done = terminated or truncated
+            i += 1
+
+            if render:
+                env.render()
+
+        env.close()
+        return total_reward
+
+    def _get_fitness(self):
         total_reward = 0
         for _ in range(self.trials):
-            observation = env.reset()
-            for i in range(self.max_eps_length):
-                action = self.get_action(observation)
-                observation, reward, done, info = env.step(action)
-                total_reward += reward
-                if done: break
+            total_reward += self.test_agent()
         return total_reward / self.trials
 
     def get_action(self, state):
-        act_prob = self.model(torch.Tensor(state.reshape(1,-1))).detach().numpy()[0] # use predict api when merged
+        act_prob = (
+            self.model(torch.Tensor(state.reshape(1, -1))).detach().numpy()[0]
+        )  # use predict api when merged
         action = np.random.choice(range(len(act_prob)), p=act_prob)
         return action
 
@@ -64,90 +85,71 @@ def cross(agent1, agent2, agent_config):
     return Agent(weights=new_weights, **agent_config)
 
 
-def mutate(new_weights):
-    num_params_to_update = np.random.randint(0, num_params)  # num of params to change
-    for i in range(num_params_to_update):
-        n = np.random.randint(0, num_params)
-        new_weights[n] = new_weights[n] + torch.rand(new_weights[n].size())
+def mutate(new_weights, rate=0.001):
+    for i in range(len(new_weights)):
+        mask = (torch.rand(new_weights[i].size()) < rate).int()
+        mutation = torch.randn(new_weights[i].size()) / 10
+        new_weights[i] = new_weights[i] + mask * mutation
     return new_weights
 
 
-
-def breed(agent1, agent2, agent_config, generation_size=10):
-    next_generation = [agent1, agent2]
-
-    for _ in range(generation_size - 2):
-        next_generation.append(cross(agent1, agent2, agent_config))
-
-    return next_generation
-
 def reproduce(agents, agent_config, generation_size):
-    top_agents = sorted(agents, reverse=True, key=lambda a: a.fitness)[:2]
-    new_agents = breed(top_agents[0], top_agents[1], agent_config, generation_size)
+    new_agents = []
+    while len(new_agents) < generation_size:
+        parents = random.choices(agents, k=2, weights=[x.fitness for x in agents])
+        child1 = cross(parents[0], parents[1], agent_config)
+        child2 = cross(parents[0], parents[1], agent_config)
+        new_agents.extend([child1, child2])
+
     return new_agents
 
 
 def run(n_generations, generation_size, agent_config, save_file=None, render=False):
-    agents = [Agent(**agent_config), Agent(**agent_config)]
+    # Initialize population, fitness is observed on init
+    agents = [Agent(**agent_config) for _ in range(generation_size)]
+    agents = sorted(agents, reverse=True, key=lambda a: a.fitness)
     max_fitness = 0
     for i in range(n_generations):
-        next_generation = reproduce(agents, agent_config, generation_size)
-        ranked_generation = sorted(next_generation, reverse=True, key=lambda a : a.fitness)
-        avg_fitness = (ranked_generation[0].fitness + ranked_generation[1].fitness) / 2
-        print(i, avg_fitness)
-        agents = next_generation
-        if ranked_generation[0].fitness > max_fitness:
-            max_fitness = ranked_generation[0].fitness
+        agents = reproduce(agents, agent_config, generation_size)
+        agents = sorted(agents, reverse=True, key=lambda a: a.fitness)
+        avg_fitness = sum([a.fitness for a in agents]) / len(agents)
+        print(f"{i}, Avg: {avg_fitness:.2f}, Top: {agents[0].fitness:.2f}")
+        if agents[0].fitness > max_fitness:
+            max_fitness = agents[0].fitness
             # ranked_generation[0].save(args.save_file)
-            test_agent(ranked_generation[0], agent_config, render)
+
+    final_score = agents[0].test_agent(render=render)
+    print("Final fitness:", agents[0].fitness)
+    print("Final score:", final_score)
 
 
-def test_agent(agent, agent_config, render):
-    env = agent_config['env']
-    obs = env.reset()
-    total_reward = 0
-    for i in range(agent_config['max_eps_length']):
-        if render: env.render()
-        action = agent.get_action(obs)
-        obs, reward, done, info = env.step(action)
-        total_reward += reward
-        if done: break
-    print('test', total_reward)
-    env.close()
-
-
-
-if __name__ == '__main__':
-    env_names = [e.id for e in gym.envs.registry.all()]
+if __name__ == "__main__":
+    env_names = list(gym.envs.registry.keys())
 
     parser = ArgumentParser()
-    parser.add_argument('--n_generations', default=10000)
-    parser.add_argument('--render',  action='store_true')
-    parser.add_argument('--generation_size', default=20)
-    parser.add_argument('--max_eps_length', default=500)
-    parser.add_argument('--trials', default=5)
-    parser.add_argument('--env', default='CartPole-v1', choices=env_names)
-    parser.add_argument('--save_file')
+    parser.add_argument("--n_generations", default=50)
+    parser.add_argument("--render", action="store_true")
+    parser.add_argument("--generation_size", default=100)
+    parser.add_argument("--max_eps_length", default=500)
+    parser.add_argument("--trials", default=10)
+    parser.add_argument("--env", default="CartPole-v1", choices=env_names)
+    parser.add_argument("--save_file")
 
     args = parser.parse_args()
     env = gym.make(args.env)
 
     agent_config = {
-        'state_space' : env.observation_space.shape,
-        'action_space' : env.action_space.n,
-        'max_eps_length' : args.max_eps_length,
-        'trials' : args.trials,
-        'env': env,
+        "state_space": env.observation_space.shape,
+        "action_space": env.action_space.n,
+        "max_eps_length": args.max_eps_length,
+        "trials": args.trials,
+        "env": env,
     }
 
-    run(args.n_generations, args.generation_size, agent_config, args.save_file, args.render)
-
-
-
-
-
-
-
-
-
-
+    run(
+        args.n_generations,
+        args.generation_size,
+        agent_config,
+        args.save_file,
+        args.render,
+    )
