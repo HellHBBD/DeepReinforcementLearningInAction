@@ -72,3 +72,9 @@ data
 
 # Model files
 **.pth
+
+# Generated chapter outputs
+Chapter 5/worker.py
+Chapter 5/logs.pkl
+old_but_more_detailed/PGac_score_plot1.pdf
+old_but_more_detailed/outputs/

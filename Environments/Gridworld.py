@@ -47,9 +47,9 @@ class Gridworld:
 
         corners = [
             (0, 0),
-            (0, self.board.size),
-            (self.board.size, 0),
-            (self.board.size, self.board.size),
+            (0, self.board.size - 1),
+            (self.board.size - 1, 0),
+            (self.board.size - 1, self.board.size - 1),
         ]
         # if player is in corner, can it move? if goal is in corner, is it blocked?
         if player.pos in corners or goal.pos in corners:
@@ -118,33 +118,28 @@ class Gridworld:
             if _validity != 1:
                 new_pos = addTuple(self.board.components["Player"].pos, addpos)
                 self.board.movePiece("Player", new_pos)
-            return _validity
 
         if action == "u":  # up
-            _validity = checkMove((-1, 0))
+            checkMove((-1, 0))
         elif action == "d":  # down
-            _validity = checkMove((1, 0))
+            checkMove((1, 0))
         elif action == "l":  # left
-            _validity = checkMove((0, -1))
+            checkMove((0, -1))
         elif action == "r":  # right
-            _validity = checkMove((0, 1))
-        else:
-            _validity = 1
+            checkMove((0, 1))
+        # Unknown actions leave the player in place, like blocked moves.
 
-        if _validity == 1:
-            done = 0
-            reward = -5
-        elif _validity == 2:
-            done = 1
-            reward = -10
-        elif _validity == 3:
-            done = 1
-            reward = 10
-        else:
-            done = 0
-            reward = -1
+        reward = self.reward()
+        return reward, int(reward in (-10, 10))
 
-        return reward, done
+    def reward(self):
+        """Reward for the current position, as used by the printed listings."""
+        position = self.board.components["Player"].pos
+        if position == self.board.components["Pit"].pos:
+            return -10
+        if position == self.board.components["Goal"].pos:
+            return 10
+        return -1
 
     def display(self):
         return self.board.render()

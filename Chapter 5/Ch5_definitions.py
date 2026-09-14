@@ -28,7 +28,6 @@ class ActorCritic(nn.Module):  # B
         critic = torch.tanh(self.critic_lin1(c))  # D
         return actor, critic  # E
 
-
 def worker(t, worker_model, counter, params, logs):
     worker_env = gym.make("CartPole-v1")
     worker_env.reset()
@@ -46,18 +45,16 @@ def worker(t, worker_model, counter, params, logs):
         actor_loss, critic_loss = update_params(
             worker_opt, values, logprobs, rewards, G
         )  # C
-        counter.value = counter.value + 1  # D
+        with counter.get_lock():  # D
+            counter.value += 1
         if eplen != 0:
-            logs.append(
-                (
-                    t,
-                    i,
-                    eplen,
-                    round(actor_loss.detach().mean().item(), 2),
-                    round(critic_loss.detach().mean().item(), 2),
-                )
-            )
-
+            logs.append((
+                t,
+                i,
+                eplen,
+                round(actor_loss.detach().mean().item(), 2),
+                round(critic_loss.detach().mean().item(), 2),
+            ))
 
 def run_episode(worker_env, worker_model):
     state_, _ = worker_env.reset()
@@ -86,7 +83,6 @@ def run_episode(worker_env, worker_model):
     G = torch.Tensor([0.0])  # You will see this later in this chapter
     return values, logprobs, rewards, G
 
-
 def update_params(worker_opt, values, logprobs, rewards, G, clc=0.1, gamma=0.95):
     rewards = torch.Tensor(rewards).flip(dims=(0,)).view(-1)  # A
     logprobs = torch.stack(logprobs).flip(dims=(0,)).view(-1)
@@ -106,15 +102,12 @@ def update_params(worker_opt, values, logprobs, rewards, G, clc=0.1, gamma=0.95)
     worker_opt.step()
     return actor_loss, critic_loss
 
-
 def train_actor_critic(ac_model, params):
     processes = []  # C
     counter = torchmp.Value("i", 0)  # D
     logs = torchmp.Manager().list()
     for i in range(params["n_workers"]):
-        p = torchmp.Process(
-            target=worker, args=(i, ac_model, counter, params, logs)
-        )  # E
+        p = torchmp.Process(target=worker, args=(i, ac_model, counter, params, logs))  # E
         p.start()
         processes.append(p)
     for p in processes:  # F
@@ -136,7 +129,6 @@ def train_actor_critic(ac_model, params):
     with open("logs.pkl", "wb") as f:
         pickle.dump(list(logs), f)
 
-
 def run_episode_n(worker_env, worker_model, N_steps, eplen_acc):
     state_ = np.array(worker_env.unwrapped.state, dtype=np.float32)
     state = torch.from_numpy(state_).float()
@@ -156,6 +148,7 @@ def run_episode_n(worker_env, worker_model, N_steps, eplen_acc):
         state_, _, terminated, truncated, _ = worker_env.step(action.detach().numpy())
         done = terminated or truncated
         state = torch.from_numpy(state_).float()
+        eplen_acc += 1
         if done:
             reward = -10
             worker_env.reset()
@@ -163,11 +156,11 @@ def run_episode_n(worker_env, worker_model, N_steps, eplen_acc):
             eplen_acc = 0
         else:  # C
             reward = 1.0
-            eplen_acc += 1
         rewards.append(reward)
 
     if done:
         G = torch.Tensor([0.0])  # A
     else:
-        G = value.detach()
+        with torch.no_grad():
+            _, G = worker_model(state)
     return values, logprobs, rewards, G, eplen, eplen_acc

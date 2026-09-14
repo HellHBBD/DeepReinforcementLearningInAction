@@ -12,7 +12,7 @@ urllib3==2.7.0
 scikit-image==0.26.0
 magent2==0.3.4
 nes-py==9.0.1
-pyglet==1.5.31
+pyglet==1.5.21
 einops==0.8.2
 minigrid==3.1.0
 pandas==3.0.3

@@ -13,7 +13,7 @@ import gymnasium as gym
 
 class Agent(object):
     def __init__(
-        self, env, state_space, action_space, weights=[], max_eps_length=500, trials=5
+        self, env, state_space, action_space, weights=None, max_eps_length=500, trials=5
     ):
         self.env = env
         self.max_eps_length = max_eps_length
@@ -45,19 +45,18 @@ class Agent(object):
     def test_agent(self, render=False):
         state = self.env.reset()[0]
         if render:
-            env.render()
+            self.env.render()
         total_reward, i, done = 0, 0, False
         while not done and i < self.max_eps_length:
             action = self.get_action(state)
-            state, reward, terminated, truncated, _ = env.step(action)
+            state, reward, terminated, truncated, _ = self.env.step(action)
             total_reward += reward
             done = terminated or truncated
             i += 1
 
             if render:
-                env.render()
+                self.env.render()
 
-        env.close()
         return total_reward
 
     def _get_fitness(self):
@@ -74,7 +73,7 @@ class Agent(object):
         return action
 
     def save(self, save_file):
-        self.mod.save_params(save_file)
+        torch.save(self.weights, save_file)
 
 
 def cross(agent1, agent2, agent_config):
@@ -116,7 +115,8 @@ def run(n_generations, generation_size, agent_config, save_file=None, render=Fal
         print(f"{i}, Avg: {avg_fitness:.2f}, Top: {agents[0].fitness:.2f}")
         if agents[0].fitness > max_fitness:
             max_fitness = agents[0].fitness
-            # ranked_generation[0].save(args.save_file)
+            if save_file:
+                agents[0].save(save_file)
 
     final_score = agents[0].test_agent(render=render)
     print("Final fitness:", agents[0].fitness)
@@ -127,16 +127,16 @@ if __name__ == "__main__":
     env_names = list(gym.envs.registry.keys())
 
     parser = ArgumentParser()
-    parser.add_argument("--n_generations", default=50)
+    parser.add_argument("--n_generations", type=int, default=50)
     parser.add_argument("--render", action="store_true")
-    parser.add_argument("--generation_size", default=100)
-    parser.add_argument("--max_eps_length", default=500)
-    parser.add_argument("--trials", default=10)
+    parser.add_argument("--generation_size", type=int, default=100)
+    parser.add_argument("--max_eps_length", type=int, default=500)
+    parser.add_argument("--trials", type=int, default=10)
     parser.add_argument("--env", default="CartPole-v1", choices=env_names)
     parser.add_argument("--save_file")
 
     args = parser.parse_args()
-    env = gym.make(args.env)
+    env = gym.make(args.env, render_mode="human" if args.render else None)
 
     agent_config = {
         "state_space": env.observation_space.shape,
@@ -153,3 +153,5 @@ if __name__ == "__main__":
         args.save_file,
         args.render,
     )
+
+    env.close()
