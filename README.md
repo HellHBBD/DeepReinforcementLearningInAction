@@ -25,3 +25,8 @@ Use a fresh Python 3.13 environment and launch each notebook from its chapter di
 
 If you experience any issues running the examples, please file an issue.
 If you see typos or other errors in the book, please edit the [Errata.md](https://github.com/DeepReinforcementLearning/DeepReinforcementLearningInAction/blob/master/Errata.md) file and create a pull request.
+
+## Automated tests
+
+See [TESTING.md](TESTING.md) for PR regression/smoke checks, weekly and manual
+full-training runs, local commands, and merge-protection setup.
