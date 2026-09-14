@@ -57,16 +57,27 @@ venv.bak/
 archive/
 Chapter\ 2/Ch2_Bandits_TensorFlow.ipynb
 Chapter\ 2/Ch2_MDPs_old.ipynb
-Chapter\ 2/.ipynb_checkpoints
-Chapter\ 3/.ipynb_checkpoints/
-Chapter\ 3/.DS_Store
 Chapter\ 3/Ch3_DQN_old.ipynb
 Chapter\ 3/Ch3_Gridworld_exp.ipynb
 Chapter\ 3/Ch3_Gridworld.ipynb
 Chapter\ 3/Sokoban.py
 Chapter\ 4/Ch4_PolicyGradients_.ipynb
-Chapter\ 4/.ipynb_checkpoints
+!Chapter\ 9/MAgent/build/render/README.txt
 Sandbox
 .idea
 **/.DS_Store
 
+# Data
+data
+
+# Model files
+**.pth
+
+# Generated chapter outputs
+Chapter 5/worker.py
+Chapter 5/logs.pkl
+old_but_more_detailed/PGac_score_plot1.pdf
+old_but_more_detailed/outputs/
+
+# CI artifacts
+artifacts/

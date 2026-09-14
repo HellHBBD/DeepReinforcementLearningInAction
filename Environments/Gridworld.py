@@ -1,127 +1,145 @@
-from GridBoard import *
+from Environments.GridBoard import *
+
 
 class Gridworld:
-
-    def __init__(self, size=4, mode='static'):
+    def __init__(self, size=4, mode="static"):
         if size >= 4:
             self.board = GridBoard(size=size)
         else:
             print("Minimum board size is 4. Initialized to size 4.")
             self.board = GridBoard(size=4)
 
-        #Add pieces, positions will be updated later
-        self.board.addPiece('Player','P',(0,0))
-        self.board.addPiece('Goal','+',(1,0))
-        self.board.addPiece('Pit','-',(2,0))
-        self.board.addPiece('Wall','W',(3,0))
+        # Add pieces, positions will be updated later
+        self.board.addPiece("Player", "P", (0, 0))
+        self.board.addPiece("Goal", "+", (1, 0))
+        self.board.addPiece("Pit", "-", (2, 0))
+        self.board.addPiece("Wall", "W", (3, 0))
 
-        if mode == 'static':
+        if mode == "static":
             self.initGridStatic()
-        elif mode == 'player':
+        elif mode == "player":
             self.initGridPlayer()
         else:
             self.initGridRand()
 
-    #Initialize stationary grid, all items are placed deterministically
+    # Initialize stationary grid, all items are placed deterministically
     def initGridStatic(self):
-        #Setup static pieces
-        self.board.components['Player'].pos = (0,3) #Row, Column
-        self.board.components['Goal'].pos = (0,0)
-        self.board.components['Pit'].pos = (0,1)
-        self.board.components['Wall'].pos = (1,1)
+        # Setup static pieces
+        self.board.components["Player"].pos = (0, 3)  # Row, Column
+        self.board.components["Goal"].pos = (0, 0)
+        self.board.components["Pit"].pos = (0, 1)
+        self.board.components["Wall"].pos = (1, 1)
 
-    #Check if board is initialized appropriately (no overlapping pieces)
-    #also remove impossible-to-win boards
+    # Check if board is initialized appropriately (no overlapping pieces)
+    # also remove impossible-to-win boards
     def validateBoard(self):
         valid = True
 
-        player = self.board.components['Player']
-        goal = self.board.components['Goal']
-        wall = self.board.components['Wall']
-        pit = self.board.components['Pit']
+        player = self.board.components["Player"]
+        goal = self.board.components["Goal"]
+        wall = self.board.components["Wall"]
+        pit = self.board.components["Pit"]
 
-        all_positions = [piece for name,piece in self.board.components.items()]
+        all_positions = [piece for name, piece in self.board.components.items()]
         all_positions = [player.pos, goal.pos, wall.pos, pit.pos]
         if len(all_positions) > len(set(all_positions)):
             return False
 
-        corners = [(0,0),(0,self.board.size), (self.board.size,0), (self.board.size,self.board.size)]
-        #if player is in corner, can it move? if goal is in corner, is it blocked?
+        corners = [
+            (0, 0),
+            (0, self.board.size - 1),
+            (self.board.size - 1, 0),
+            (self.board.size - 1, self.board.size - 1),
+        ]
+        # if player is in corner, can it move? if goal is in corner, is it blocked?
         if player.pos in corners or goal.pos in corners:
-            val_move_pl = [self.validateMove('Player', addpos) for addpos in [(0,1),(1,0),(-1,0),(0,-1)]]
-            val_move_go = [self.validateMove('Goal', addpos) for addpos in [(0,1),(1,0),(-1,0),(0,-1)]]
+            val_move_pl = [
+                self.validateMove("Player", addpos)
+                for addpos in [(0, 1), (1, 0), (-1, 0), (0, -1)]
+            ]
+            val_move_go = [
+                self.validateMove("Goal", addpos)
+                for addpos in [(0, 1), (1, 0), (-1, 0), (0, -1)]
+            ]
             if 0 not in val_move_pl or 0 not in val_move_go:
-                #print(self.display())
-                #print("Invalid board. Re-initializing...")
+                # print(self.display())
+                # print("Invalid board. Re-initializing...")
                 valid = False
 
         return valid
 
-    #Initialize player in random location, but keep wall, goal and pit stationary
+    # Initialize player in random location, but keep wall, goal and pit stationary
     def initGridPlayer(self):
-        #height x width x depth (number of pieces)
+        # height x width x depth (number of pieces)
         self.initGridStatic()
-        #place player
-        self.board.components['Player'].pos = randPair(0,self.board.size)
+        # place player
+        self.board.components["Player"].pos = randPair(0, self.board.size)
 
-        if (not self.validateBoard()):
-            #print('Invalid grid. Rebuilding..')
+        if not self.validateBoard():
+            # print('Invalid grid. Rebuilding..')
             self.initGridPlayer()
 
-    #Initialize grid so that goal, pit, wall, player are all randomly placed
+    # Initialize grid so that goal, pit, wall, player are all randomly placed
     def initGridRand(self):
-        #height x width x depth (number of pieces)
-        self.board.components['Player'].pos = randPair(0,self.board.size)
-        self.board.components['Goal'].pos = randPair(0,self.board.size)
-        self.board.components['Pit'].pos = randPair(0,self.board.size)
-        self.board.components['Wall'].pos = randPair(0,self.board.size)
+        # height x width x depth (number of pieces)
+        self.board.components["Player"].pos = randPair(0, self.board.size)
+        self.board.components["Goal"].pos = randPair(0, self.board.size)
+        self.board.components["Pit"].pos = randPair(0, self.board.size)
+        self.board.components["Wall"].pos = randPair(0, self.board.size)
 
-        if (not self.validateBoard()):
-            #print('Invalid grid. Rebuilding..')
+        if not self.validateBoard():
+            # print('Invalid grid. Rebuilding..')
             self.initGridRand()
 
-    def validateMove(self, piece, addpos=(0,0)):
-        outcome = 0 #0 is valid, 1 invalid, 2 lost game
-        pit = self.board.components['Pit'].pos
-        wall = self.board.components['Wall'].pos
+    def validateMove(self, piece, addpos=(0, 0)):
+        outcome = 0  # 0 is valid, 1 invalid, 2 lost game, 3 won game
+        pit = self.board.components["Pit"].pos
+        wall = self.board.components["Wall"].pos
+        goal = self.board.components["Goal"].pos
         new_pos = addTuple(self.board.components[piece].pos, addpos)
         if new_pos == wall:
-            outcome = 1 #block move, player can't move to wall
-        elif max(new_pos) > (self.board.size-1):    #if outside bounds of board
+            outcome = 1  # block move, player can't move to wall
+        elif max(new_pos) > (self.board.size - 1):  # if outside bounds of board
             outcome = 1
-        elif min(new_pos) < 0: #if outside bounds
+        elif min(new_pos) < 0:  # if outside bounds
             outcome = 1
         elif new_pos == pit:
             outcome = 2
+        elif new_pos == goal:
+            outcome = 3
 
         return outcome
 
     def makeMove(self, action):
-        #need to determine what object (if any) is in the new grid spot the player is moving to
-        #actions in {u,d,l,r}
+        # need to determine what object (if any) is in the new grid spot the player is moving to
+        # actions in {u,d,l,r}
         def checkMove(addpos):
-            if self.validateMove('Player', addpos) in [0,2]:
-                new_pos = addTuple(self.board.components['Player'].pos, addpos)
-                self.board.movePiece('Player', new_pos)
+            _validity = self.validateMove("Player", addpos)
+            if _validity != 1:
+                new_pos = addTuple(self.board.components["Player"].pos, addpos)
+                self.board.movePiece("Player", new_pos)
 
-        if action == 'u': #up
-            checkMove((-1,0))
-        elif action == 'd': #down
-            checkMove((1,0))
-        elif action == 'l': #left
-            checkMove((0,-1))
-        elif action == 'r': #right
-            checkMove((0,1))
-        else:
-            pass
-              
+        if action == "u":  # up
+            checkMove((-1, 0))
+        elif action == "d":  # down
+            checkMove((1, 0))
+        elif action == "l":  # left
+            checkMove((0, -1))
+        elif action == "r":  # right
+            checkMove((0, 1))
+        # Unknown actions leave the player in place, like blocked moves.
+
+        reward = self.reward()
+        return reward, int(reward in (-10, 10))
+
     def reward(self):
-        if (self.board.components['Player'].pos == self.board.components['Pit'].pos):
-            return -1
-        elif (self.board.components['Player'].pos == self.board.components['Goal'].pos):
-            return 1
-        else:
-            return 0
+        """Reward for the current position, as used by the printed listings."""
+        position = self.board.components["Player"].pos
+        if position == self.board.components["Pit"].pos:
+            return -10
+        if position == self.board.components["Goal"].pos:
+            return 10
+        return -1
 
     def display(self):
         return self.board.render()

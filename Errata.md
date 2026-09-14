@@ -1,4 +1,10 @@
 # Errata
+
+See [Book compatibility and corrections](BOOK_COMPATIBILITY.md) for the maintained
+chapter-by-chapter corrections, including gradient clearing, Bellman targets,
+rotation, environment limits, and modern-library APIs. [Validation](VALIDATION.md)
+distinguishes successful execution from demonstrated learning.
+
 Here we keep an updated list of book errata listed by chapter. The errata will be addressed periodically in the eBook and liveBook versions and less frequently in print versions. We highly recommend using the GitHub code when following along the book as it is very difficult to maintain code within the book text.
 
 ## Chapter 2
